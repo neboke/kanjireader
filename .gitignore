@@ -1,0 +1,5 @@
+node_modules/
+.expo/
+.cache/
+web-build/pwa/apple-touch-startup-image/
+
