@@ -299,21 +299,21 @@ export default function App() {
               <Text style={styles.menuIcon}>🎯</Text>
               <Text style={styles.menuText}>クイズ開始</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('badges')}>
+              <Text style={styles.menuIcon}>🏆</Text>
+              <Text style={styles.menuText}>バッジコレクション</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.menuCard} onPress={() => goMode('filters')}>
-              <Text style={styles.menuIcon}>🔧</Text>
+              <Text style={styles.menuIcon}>⚙️</Text>
               <Text style={styles.menuText}>フィルター設定</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuCard} onPress={() => goMode('data')}>
-              <Text style={styles.menuIcon}>📄</Text>
+              <Text style={styles.menuIcon}>📊</Text>
               <Text style={styles.menuText}>データ一覧</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuCard} onPress={() => goMode('history')}>
               <Text style={styles.menuIcon}>📜</Text>
               <Text style={styles.menuText}>解答履歴</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('badges')}>
-              <Text style={styles.menuIcon}>🏆</Text>
-              <Text style={styles.menuText}>バッジコレクション</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -341,7 +341,16 @@ export default function App() {
             <View>
               <Text style={styles.sentence}>{`${qCount+1}. ${question.sentence}`}</Text>
               <Text style={styles.prompt}>「{question.target}」の読みを入力</Text>
-              <TextInput style={styles.input} value={answer} onChangeText={setAnswer} placeholder="ひらがな" />
+              <TextInput 
+                style={styles.input} 
+                value={answer} 
+                onChangeText={setAnswer} 
+                placeholder="ひらがな"
+                autoCorrect={false}
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="none"
+              />
               <Button title="答える" onPress={checkAnswer} />
               {feedback !== '' && (
                 <View style={styles.feedbackContainer}>

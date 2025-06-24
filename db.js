@@ -1,6 +1,6 @@
 // db.js
 import * as SQLite from 'expo-sqlite';
-import { tsvGrade1, tsvGrade2, tsvGrade3, tsvGrade4, tsvGrade5, tsvGrade6 } from './assets/tsv-data.js';
+import { kanjiTsvData } from './assets/kanji-data.js';
 
 /**
  * TSVデータからパースされたデータを取得
@@ -8,34 +8,28 @@ import { tsvGrade1, tsvGrade2, tsvGrade3, tsvGrade4, tsvGrade5, tsvGrade6 } from
 const loadTSVData = () => {
   try {
     const allData = [];
-    const tsvFiles = [tsvGrade1, tsvGrade2, tsvGrade3, tsvGrade4, tsvGrade5, tsvGrade6];
     
-    tsvFiles.forEach((tsvContent, index) => {
-      const grade = index + 1;
-      
-      if (!tsvContent || tsvContent.includes('// Grade')) {
-        console.warn(`⚠️ TSV data for grade ${grade} is not yet populated`);
-        return;
+    if (!kanjiTsvData) {
+      console.warn('⚠️ TSV data is not available');
+      return [];
+    }
+    
+    // TSVをパース
+    const lines = kanjiTsvData.trim().split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const values = lines[i].split('\t');
+      if (values.length >= 6) {
+        allData.push({
+          kanji: values[0],
+          grade: parseInt(values[1]),
+          sentence: values[2],
+          target: values[3],
+          reading: values[4],
+          difficulty: parseInt(values[5])
+        });
       }
-      
-      // TSVをパース
-      const lines = tsvContent.trim().split('\n');
-      const headers = lines[0].split('\t'); // kanji, grade, sentence, target, reading, difficulty
-      
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split('\t');
-        if (values.length >= 6) {
-          allData.push({
-            kanji: values[0],
-            grade: parseInt(values[1]),
-            sentence: values[2],
-            target: values[3],
-            reading: values[4],
-            difficulty: parseInt(values[5])
-          });
-        }
-      }
-    });
+    }
     
     console.log(`✅ Loaded ${allData.length} entries from TSV data`);
     return allData;
