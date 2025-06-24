@@ -1,0 +1,49 @@
+name: Build and Submit to TestFlight
+
+on:
+  workflow_dispatch:  # 手動起動のみ
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Authenticate with Expo
+        run: eas login --token ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build iOS app
+        run: eas build --platform ios --profile production --non-interactive
+
+      - name: Get latest build URL
+        id: get_url
+        run: |
+          echo "url=$(eas build:list --platform ios --status finished --limit 1 --json | jq -r '.[0].artifacts.buildUrl')" >> $GITHUB_OUTPUT
+
+      - name: Save App Store API key to file
+        run: |
+          echo "${{ secrets.ASC_API_KEY_BASE64 }}" | base64 --decode > authkey.p8
+
+      - name: Submit to TestFlight
+        run: |
+          eas submit --platform ios \
+            --path ${{ steps.get_url.outputs.url }} \
+            --non-interactive \
+            --apple-id your-apple-id@example.com \
+            --asc-api-key-path authkey.p8 \
+            --asc-api-key-issuer-id ${{ secrets.ASC_API_KEY_ISSUER_ID }} \
+            --asc-api-key-id ${{ secrets.ASC_API_KEY_ID }}
+

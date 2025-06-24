@@ -11,7 +11,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yasukawa.kanjireader",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +23,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d9de7156-5687-4e8a-bf3f-577fc4d32f6b"
+      }
+    },
+    "owner": "neboke"
   }
 }
-
