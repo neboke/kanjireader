@@ -17,6 +17,9 @@ import * as SQLite from 'expo-sqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initDatabase, insertInitialDataIfNeeded } from './db';
 import { ScoreBar, ScoreAnimation } from './components/ScoreBar';
+import { BadgeGrid, BadgeSummary } from './components/BadgeDisplay';
+import { badgeDefinitions, checkBadges, countEarnedBadges, getNewlyEarnedBadges } from './badges/BadgeDefinitions';
+import { loadUserStats, recordSessionResult, recordDailyActivity, updateUserStats, updateBadgeEarnCount } from './utils/UserStatsManager';
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -32,6 +35,9 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [totalScore, setTotalScore] = useState(0); // 累積スコア
   const [showScoreAnimation, setShowScoreAnimation] = useState(false);
+  const [userStats, setUserStats] = useState(null);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [newBadges, setNewBadges] = useState([]);
 
   // AsyncStorageキー
   const SCORE_KEY = 'kanjiapp_total_score';
@@ -54,6 +60,42 @@ export default function App() {
       await AsyncStorage.setItem(SCORE_KEY, newScore.toString());
     } catch (error) {
       console.error('スコア保存エラー:', error);
+    }
+  };
+
+  // ユーザー統計初期化
+  const initializeUserStats = async () => {
+    try {
+      const stats = await loadUserStats();
+      setUserStats(stats);
+      // 本日のデイリーチャレンジ初期化
+      await recordDailyActivity();
+    } catch (error) {
+      console.error('ユーザー統計初期化エラー:', error);
+    }
+  };
+
+  // バッジチェック
+  const checkForNewBadges = async (newStats) => {
+    try {
+      const newUnlockedBadges = await getNewlyEarnedBadges(newStats, userStats);
+      if (newUnlockedBadges.length > 0) {
+        // 新しく獲得したバッジの獲得回数を更新
+        for (const badge of newUnlockedBadges) {
+          await updateBadgeEarnCount(badge.id, 1);
+        }
+        
+        setNewBadges(newUnlockedBadges);
+        // バッジ獲得アラート
+        const badgeNames = newUnlockedBadges.map(b => b.name).join('、');
+        Alert.alert(
+          '🏆 新しいバッジ獲得！',
+          `「${badgeNames}」を獲得しました！`,
+          [{ text: 'OK', onPress: () => setNewBadges([]) }]
+        );
+      }
+    } catch (error) {
+      console.error('バッジチェックエラー:', error);
     }
   };
 
@@ -84,6 +126,8 @@ export default function App() {
       setDb(database);
       // スコアを読み込み
       await loadScore();
+      // ユーザー統計を初期化
+      await initializeUserStats();
     })();
   }, []);
 
@@ -98,6 +142,7 @@ export default function App() {
     setQCount(0);
     setScore(0);
     setHistory([]);
+    setCurrentStreak(0);
     setMode('quiz');
     await loadRandomQuestion(database);
   };
@@ -133,6 +178,13 @@ export default function App() {
     setFeedback(correct ? '✅ 正解！' : `❌ 不正解。正解は「${question.reading}」`);
     setHistory(h => [...h, { question, yourAnswer: answer.trim(), correct }]);
     
+    // ストリーク更新
+    if (correct) {
+      setCurrentStreak(s => s + 1);
+    } else {
+      setCurrentStreak(0);
+    }
+    
     // スコア更新
     if (correct) {
       setScore(s => s + 1); // セッション内スコア
@@ -152,7 +204,33 @@ export default function App() {
     if (nextCount < 10) {
       await loadRandomQuestion();
     } else {
+      // セッション結果を記録
+      await recordSessionResults();
       setMode('result');
+    }
+  };
+
+  // セッション結果記録
+  const recordSessionResults = async () => {
+    try {
+      const sessionData = {
+        correct: score,
+        total: 10,
+        streak: Math.max(currentStreak, userStats?.maxStreak || 0),
+        scoreGained: score * 10
+      };
+      
+      // セッション結果を記録
+      await recordSessionResult(sessionData);
+      
+      // 更新された統計を取得
+      const updatedStats = await loadUserStats();
+      setUserStats(updatedStats);
+      
+      // バッジチェック
+      await checkForNewBadges(updatedStats);
+    } catch (error) {
+      console.error('セッション結果記録エラー:', error);
     }
   };
 
@@ -205,6 +283,16 @@ export default function App() {
               <Text style={styles.statsText}>
                 正解数: {Math.floor(totalScore / 10)}問
               </Text>
+              {userStats && (
+                <>
+                  <Text style={styles.statsText}>
+                    最高ストリーク: {userStats.maxStreak}連続
+                  </Text>
+                  <Text style={styles.statsText}>
+                    今日の問題数: {userStats.dailyProblemCount}問
+                  </Text>
+                </>
+              )}
             </View>
             
             <TouchableOpacity style={styles.menuCard} onPress={startQuiz}>
@@ -222,6 +310,10 @@ export default function App() {
             <TouchableOpacity style={styles.menuCard} onPress={() => goMode('history')}>
               <Text style={styles.menuIcon}>📜</Text>
               <Text style={styles.menuText}>解答履歴</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('badges')}>
+              <Text style={styles.menuIcon}>🏆</Text>
+              <Text style={styles.menuText}>バッジコレクション</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -273,6 +365,21 @@ export default function App() {
             <Text style={styles.subtitle}>
               累積スコア: {totalScore}点
             </Text>
+            {currentStreak > 0 && (
+              <Text style={styles.subtitle}>
+                連続正解: {currentStreak}問
+              </Text>
+            )}
+            {newBadges.length > 0 && (
+              <View style={styles.newBadgeContainer}>
+                <Text style={styles.newBadgeTitle}>🎉 新しいバッジ獲得！</Text>
+                {newBadges.map((badge, index) => (
+                  <Text key={index} style={styles.newBadgeText}>
+                    🏆 {badge.name}
+                  </Text>
+                ))}
+              </View>
+            )}
             <Button title="トップに戻る" onPress={() => goMode('menu')} />
           </View>
         )}
@@ -301,6 +408,15 @@ export default function App() {
               </View>
             )} />
           )
+        )}
+
+        {/* バッジコレクション */}
+        {mode === 'badges' && userStats && (
+          <View style={styles.badgeContainer}>
+            <Text style={styles.subtitle}>🏆 バッジコレクション</Text>
+            <BadgeSummary userStats={userStats} />
+            <BadgeGrid userStats={userStats} />
+          </View>
         )}
 
         {/* 共通戻るボタン */}
@@ -347,6 +463,28 @@ const styles = StyleSheet.create({
   diff: { marginTop: 12, color: '#666' },
   item: { padding: 8, borderBottomWidth: 1, borderColor: '#ddd' },
   resultContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  resultText: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 }
+  resultText: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 },
+  newBadgeContainer: {
+    backgroundColor: '#fff3cd',
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  newBadgeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  newBadgeText: {
+    fontSize: 16,
+    color: '#856404',
+    marginBottom: 4,
+  },
+  badgeContainer: {
+    flex: 1,
+    padding: 16,
+  },
 });
 
