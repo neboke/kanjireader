@@ -9,11 +9,14 @@ import {
   ActivityIndicator,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as SQLite from 'expo-sqlite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initDatabase, insertInitialDataIfNeeded } from './db';
+import { ScoreBar, ScoreAnimation } from './components/ScoreBar';
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -27,6 +30,51 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [qCount, setQCount] = useState(0);
   const [score, setScore] = useState(0);
+  const [totalScore, setTotalScore] = useState(0); // 累積スコア
+  const [showScoreAnimation, setShowScoreAnimation] = useState(false);
+
+  // AsyncStorageキー
+  const SCORE_KEY = 'kanjiapp_total_score';
+
+  // スコアをAsyncStorageから読み込み
+  const loadScore = async () => {
+    try {
+      const savedScore = await AsyncStorage.getItem(SCORE_KEY);
+      if (savedScore !== null) {
+        setTotalScore(parseInt(savedScore, 10));
+      }
+    } catch (error) {
+      console.error('スコア読み込みエラー:', error);
+    }
+  };
+
+  // スコアをAsyncStorageに保存
+  const saveScore = async (newScore) => {
+    try {
+      await AsyncStorage.setItem(SCORE_KEY, newScore.toString());
+    } catch (error) {
+      console.error('スコア保存エラー:', error);
+    }
+  };
+
+  // スコアリセット
+  const resetScore = () => {
+    Alert.alert(
+      'スコアリセット',
+      '累積スコアを0にリセットしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { 
+          text: 'リセット', 
+          style: 'destructive',
+          onPress: async () => {
+            setTotalScore(0);
+            await saveScore(0);
+          }
+        }
+      ]
+    );
+  };
 
   useEffect(() => {
     (async () => {
@@ -34,6 +82,8 @@ export default function App() {
       await insertInitialDataIfNeeded();
       const database = await SQLite.openDatabaseAsync('kanji.db');
       setDb(database);
+      // スコアを読み込み
+      await loadScore();
     })();
   }, []);
 
@@ -77,12 +127,22 @@ export default function App() {
   };
 
   // 回答チェック
-  const checkAnswer = () => {
+  const checkAnswer = async () => {
     if (!question) return;
     const correct = answer.trim() === question.reading;
     setFeedback(correct ? '✅ 正解！' : `❌ 不正解。正解は「${question.reading}」`);
     setHistory(h => [...h, { question, yourAnswer: answer.trim(), correct }]);
-    setScore(s => s + (correct ? 1 : 0));
+    
+    // スコア更新
+    if (correct) {
+      setScore(s => s + 1); // セッション内スコア
+      const newTotalScore = totalScore + 10; // 累積スコア +10点
+      setTotalScore(newTotalScore);
+      await saveScore(newTotalScore);
+      
+      // アニメーション表示
+      setShowScoreAnimation(true);
+    }
   };
 
   // 次へ or 結果
@@ -125,10 +185,28 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
+        
+        {/* スコアバー */}
+        <ScoreBar score={totalScore} onReset={resetScore} />
+        
+        {/* スコアアニメーション */}
+        <ScoreAnimation 
+          visible={showScoreAnimation} 
+          onComplete={() => setShowScoreAnimation(false)} 
+        />
 
         {/* メニュー */}
         {mode === 'menu' && (
           <View style={styles.menuContainer}>
+            {/* 統計情報 */}
+            <View style={styles.statsContainer}>
+              <Text style={styles.statsTitle}>📊 学習統計</Text>
+              <Text style={styles.statsText}>累積スコア: {totalScore}点</Text>
+              <Text style={styles.statsText}>
+                正解数: {Math.floor(totalScore / 10)}問
+              </Text>
+            </View>
+            
             <TouchableOpacity style={styles.menuCard} onPress={startQuiz}>
               <Text style={styles.menuIcon}>🎯</Text>
               <Text style={styles.menuText}>クイズ開始</Text>
@@ -189,6 +267,12 @@ export default function App() {
         {mode === 'result' && (
           <View style={styles.resultContainer}>
             <Text style={styles.resultText}>10問中 {score}問 正解！</Text>
+            <Text style={styles.subtitle}>
+              今回獲得: +{score * 10}点
+            </Text>
+            <Text style={styles.subtitle}>
+              累積スコア: {totalScore}点
+            </Text>
             <Button title="トップに戻る" onPress={() => goMode('menu')} />
           </View>
         )}
@@ -235,6 +319,25 @@ const styles = StyleSheet.create({
   menuCard: { width: '48%', backgroundColor: '#f0f8ff', borderRadius: 8, padding: 16, alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 },
   menuIcon: { fontSize: 32, marginBottom: 8 },
   menuText: { fontSize: 16, fontWeight: '600' },
+  statsContainer: {
+    width: '100%',
+    backgroundColor: '#e8f5e8',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#2e7d32',
+  },
+  statsText: {
+    fontSize: 16,
+    color: '#388e3c',
+    marginBottom: 4,
+  },
   subtitle: { fontSize: 20, marginBottom: 12 },
   sentence: { fontSize: 22, marginBottom: 8 },
   prompt: { fontSize: 16, marginBottom: 8 },

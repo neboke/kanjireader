@@ -1,23 +1,49 @@
 // db.js
 import * as SQLite from 'expo-sqlite';
+import { tsvGrade1, tsvGrade2, tsvGrade3, tsvGrade4, tsvGrade5, tsvGrade6 } from './assets/tsv-data.js';
 
-// 学年ごとに分割したJSONファイルを静的インポート
-import data1 from './assets/kanji/grade1.json';
-import data2 from './assets/kanji/grade2.json';
-import data3 from './assets/kanji/grade3.json';
-import data4 from './assets/kanji/grade4.json';
-import data5 from './assets/kanji/grade5.json';
-import data6 from './assets/kanji/grade6.json';
-
-// フラット化してまとめる
-const kanjiData = [
-  ...data1,
-  ...data2,
-  ...data3,
-  ...data4,
-  ...data5,
-  ...data6,
-];
+/**
+ * TSVデータからパースされたデータを取得
+ */
+const loadTSVData = () => {
+  try {
+    const allData = [];
+    const tsvFiles = [tsvGrade1, tsvGrade2, tsvGrade3, tsvGrade4, tsvGrade5, tsvGrade6];
+    
+    tsvFiles.forEach((tsvContent, index) => {
+      const grade = index + 1;
+      
+      if (!tsvContent || tsvContent.includes('// Grade')) {
+        console.warn(`⚠️ TSV data for grade ${grade} is not yet populated`);
+        return;
+      }
+      
+      // TSVをパース
+      const lines = tsvContent.trim().split('\n');
+      const headers = lines[0].split('\t'); // kanji, grade, sentence, target, reading, difficulty
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split('\t');
+        if (values.length >= 6) {
+          allData.push({
+            kanji: values[0],
+            grade: parseInt(values[1]),
+            sentence: values[2],
+            target: values[3],
+            reading: values[4],
+            difficulty: parseInt(values[5])
+          });
+        }
+      }
+    });
+    
+    console.log(`✅ Loaded ${allData.length} entries from TSV data`);
+    return allData;
+  } catch (error) {
+    console.error('❌ Error loading TSV data:', error);
+    return [];
+  }
+};
 
 /**
  * データベースファイルを開く
@@ -29,17 +55,19 @@ export const openDb = () => {
 /**
  * テーブル作成
  */
-export const initDatabase = () => {
-  const db = openDb();
-  db.transaction(tx => {
-    tx.executeSql(`
+export const initDatabase = async () => {
+  try {
+    const db = await SQLite.openDatabaseAsync('kanji.db');
+    
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS kanji (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         kanji TEXT NOT NULL,
         grade INTEGER NOT NULL
       );
     `);
-    tx.executeSql(`
+    
+    await db.execAsync(`
       CREATE TABLE IF NOT EXISTS examples (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         kanji_id INTEGER NOT NULL,
@@ -49,46 +77,88 @@ export const initDatabase = () => {
         difficulty INTEGER NOT NULL
       );
     `);
-  }, err => console.error('DB init error:', err),
-  () => console.log('✅ Tables created'));
+    
+    console.log('✅ Tables created');
+    return db;
+  } catch (error) {
+    console.error('❌ DB init error:', error);
+    throw error;
+  }
 };
 
 /**
  * 初期データ投入（1回のみ）
  */
-export const insertInitialDataIfNeeded = () => {
-  const db = openDb();
-  db.transaction(tx => {
-    tx.executeSql(
-      'SELECT COUNT(*) as count FROM kanji;',
-      [],
-      (_, res) => {
-        const count = res.rows._array[0].count;
-        if (count > 0) {
-          console.log('📦 Data already exists, skip import.');
-          return;
-        }
-        // JSONからINSERT
-        kanjiData.forEach(k => {
-          tx.executeSql(
-            'INSERT INTO kanji (kanji, grade) VALUES (?, ?);',
-            [k.kanji, k.grade],
-            (_, result) => {
-              const kanjiId = result.insertId;
-              k.examples.forEach(ex => {
-                tx.executeSql(
-                  `INSERT INTO examples
-                   (kanji_id, sentence, target, reading, difficulty)
-                   VALUES (?, ?, ?, ?, ?);`,
-                  [kanjiId, ex.sentence, ex.target, ex.reading, ex.difficulty]
-                );
-              });
-            }
-          );
-        });
-        console.log('✅ Initial data imported');
+export const insertInitialDataIfNeeded = async () => {
+  try {
+    const db = await SQLite.openDatabaseAsync('kanji.db');
+    
+    // データが既に存在するかチェック
+    const result = await db.getFirstAsync('SELECT COUNT(*) as count FROM kanji;');
+    const count = result.count;
+    
+    if (count > 0) {
+      console.log('📦 Data already exists, skip import.');
+      return;
+    }
+    
+    // TSVデータを読み込む（同期処理）
+    const tsvData = loadTSVData();
+    
+    if (tsvData.length === 0) {
+      console.warn('⚠️ No TSV data loaded');
+      return;
+    }
+    
+    // 漢字ごとにグループ化
+    const kanjiGroups = {};
+    tsvData.forEach(item => {
+      if (!kanjiGroups[item.kanji]) {
+        kanjiGroups[item.kanji] = {
+          kanji: item.kanji,
+          grade: item.grade,
+          examples: []
+        };
       }
-    );
-  }, err => console.error('DB import error:', err));
+      kanjiGroups[item.kanji].examples.push({
+        sentence: item.sentence,
+        target: item.target,
+        reading: item.reading,
+        difficulty: item.difficulty
+      });
+    });
+    
+    // データベースに挿入
+    let insertedKanji = 0;
+    let insertedExamples = 0;
+    
+    for (const kanjiKey in kanjiGroups) {
+      const kanjiData = kanjiGroups[kanjiKey];
+      
+      // 漢字を挿入
+      const kanjiResult = await db.runAsync(
+        'INSERT INTO kanji (kanji, grade) VALUES (?, ?);',
+        [kanjiData.kanji, kanjiData.grade]
+      );
+      
+      const kanjiId = kanjiResult.lastInsertRowId;
+      insertedKanji++;
+      
+      // 例文を挿入
+      for (const example of kanjiData.examples) {
+        await db.runAsync(
+          `INSERT INTO examples
+           (kanji_id, sentence, target, reading, difficulty)
+           VALUES (?, ?, ?, ?, ?);`,
+          [kanjiId, example.sentence, example.target, example.reading, example.difficulty]
+        );
+        insertedExamples++;
+      }
+    }
+    
+    console.log(`✅ Initial data imported: ${insertedKanji} kanji, ${insertedExamples} examples`);
+  } catch (error) {
+    console.error('❌ DB import error:', error);
+  }
 };
 
