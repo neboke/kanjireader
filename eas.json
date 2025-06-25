@@ -12,10 +12,21 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "buildType": "release"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6747693445",
+        "appleId": "neboke@yourdomain.com",
+        "ascApiKeyPath": "./authkey.p8",
+        "ascApiKeyIssuerId": "b03cdec8-f636-481d-87b4-572fc3ef1243",
+        "ascApiKeyId": "3JA6TMADQZ"
+      }
+    }
   }
 }
