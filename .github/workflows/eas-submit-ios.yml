@@ -19,6 +19,11 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
+      - name: Check EAS Login Status
+        run: eas whoami
+        env:
+          EAS_ACCESS_TOKEN: ${{ secrets.EAS_ACCESS_TOKEN }}
+
       - name: Submit latest iOS build to TestFlight
         env:
           EAS_ACCESS_TOKEN: ${{ secrets.EXPO_TOKEN }}
