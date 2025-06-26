@@ -19,10 +19,10 @@
     "production": {
       "ios": {
         "ascAppId": "6747693445",
-        "appleId": "neboke@yourdomain.com",
+        "appleId": "neboke@yk.rim.or.jp",
         "ascApiKeyPath": "./authkey.p8",
         "ascApiKeyIssuerId": "b03cdec8-f636-481d-87b4-572fc3ef1243",
-        "ascApiKeyId": "3JA6TMADQZ"
+        "ascApiKeyId": "T8V873TAM3"
       }
     }
   }
