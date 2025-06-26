@@ -23,7 +23,7 @@ jobs:
         run: npm install -g eas-cli
 
       - name: 🔑 Set Expo Access Token
-        run: echo "EXPO_TOKEN=${{ secrets.EXPO_TOKEN }}" >> $GITHUB_ENV
+        run: echo "EXPO_TOKEN=${{ secrets.EXPO_ACCESS_TOKEN }}" >> $GITHUB_ENV
 
       - name: 📚 Install Dependencies
         run: npm ci
@@ -36,7 +36,7 @@ jobs:
         run: |
           echo "url=$(eas build:list --platform ios --status finished --limit 1 --json | jq -r '.[0].artifacts.buildUrl')" >> $GITHUB_OUTPUT
         env:
-          EAS_ACCESS_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
 
       - name: 🧾 Save App Store API Key (.p8)
         run: |
@@ -51,5 +51,5 @@ jobs:
             --asc-api-key-issuer-id ${{ secrets.ASC_API_KEY_ISSUER_ID }} \
             --asc-api-key-id ${{ secrets.ASC_API_KEY_ID }}
         env:
-          EAS_ACCESS_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
 
