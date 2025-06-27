@@ -68,11 +68,19 @@ export const initDatabase = async () => {
         sentence TEXT NOT NULL,
         target TEXT NOT NULL,
         reading TEXT NOT NULL,
-        difficulty INTEGER NOT NULL
+        difficulty INTEGER NOT NULL,
+        last_answered_date DATETIME
       );
     `);
     
-    console.log('✅ Tables created');
+    // For users who already have the database, add the column if it's missing.
+    const columns = await db.getAllAsync('PRAGMA table_info(examples);');
+    if (!columns.some(c => c.name === 'last_answered_date')) {
+      await db.execAsync('ALTER TABLE examples ADD COLUMN last_answered_date DATETIME;');
+      console.log('✅ Migrated DB: Added last_answered_date column.');
+    }
+    
+    console.log('✅ Tables initialized.');
     return db;
   } catch (error) {
     console.error('❌ DB init error:', error);

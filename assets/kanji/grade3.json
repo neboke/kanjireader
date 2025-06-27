@@ -1,0 +1,105 @@
+[
+  {
+    "kanji": "生",
+    "grade": 1,
+    "examples": [
+      {
+        "sentence": "生きる力をつける",
+        "target": "生きる",
+        "reading": "い",
+        "difficulty": 2
+      },
+      {
+        "sentence": "先生はやさしい",
+        "target": "先生",
+        "reading": "せんせい",
+        "difficulty": 3
+      },
+      {
+        "sentence": "学生がならぶ",
+        "target": "学生",
+        "reading": "がくせい",
+        "difficulty": 3
+      }
+    ]
+  },
+  {
+    "kanji": "鳥",
+    "grade": 2,
+    "examples": [
+      {
+        "sentence": "百舌鳥が飛んだ",
+        "target": "百舌鳥",
+        "reading": "もず",
+        "difficulty": 7
+      },
+      {
+        "sentence": "鳥が空を飛ぶ",
+        "target": "鳥",
+        "reading": "とり",
+        "difficulty": 2
+      }
+    ]
+  },
+  {
+    "kanji": "花",
+    "grade": 1,
+    "examples": [
+      {
+        "sentence": "花がさいた",
+        "target": "花",
+        "reading": "はな",
+        "difficulty": 1
+      },
+      {
+        "sentence": "花道を歩く",
+        "target": "花道",
+        "reading": "かどう",
+        "difficulty": 4
+      }
+    ]
+  },
+  {
+    "kanji": "字",
+    "grade": 1,
+    "examples": [
+      {
+        "sentence": "字を大きく書く",
+        "target": "字",
+        "reading": "じ",
+        "difficulty": 2
+      },
+      {
+        "sentence": "地名のあざを調べる",
+        "target": "あざ",
+        "reading": "あざ",
+        "difficulty": 5
+      }
+    ]
+  },
+  {
+    "kanji": "風",
+    "grade": 3,
+    "examples": [
+      {
+        "sentence": "風が吹いている",
+        "target": "風",
+        "reading": "かぜ",
+        "difficulty": 2
+      },
+      {
+        "sentence": "風車が回る",
+        "target": "風車",
+        "reading": "ふうしゃ",
+        "difficulty": 4
+      },
+      {
+        "sentence": "風習がちがう",
+        "target": "風習",
+        "reading": "ふうしゅう",
+        "difficulty": 5
+      }
+    ]
+  }
+]
+

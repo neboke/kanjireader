@@ -10,6 +10,8 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView, // 追加
+  Platform, // 追加
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -17,9 +19,11 @@ import * as SQLite from 'expo-sqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initDatabase, insertInitialDataIfNeeded } from './db';
 import { ScoreBar, ScoreAnimation } from './components/ScoreBar';
+import { LevelIndicator } from './components/LevelIndicator'; // 追加
 import { BadgeGrid, BadgeSummary } from './components/BadgeDisplay';
 import { badgeDefinitions, checkBadges, countEarnedBadges, getNewlyEarnedBadges } from './badges/BadgeDefinitions';
 import { loadUserStats, recordSessionResult, recordDailyActivity, updateUserStats, updateBadgeEarnCount } from './utils/UserStatsManager';
+import { loadLevelData, addXp, getXpForNextLevel } from './utils/LevelManager'; // 追加
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -38,6 +42,9 @@ export default function App() {
   const [userStats, setUserStats] = useState(null);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [newBadges, setNewBadges] = useState([]);
+  const [level, setLevel] = useState(1); // 追加
+  const [xp, setXp] = useState(0); // 追加
+  const [xpForNextLevel, setXpForNextLevel] = useState(100); // 追加
 
   // AsyncStorageキー
   const SCORE_KEY = 'kanjiapp_total_score';
@@ -61,6 +68,14 @@ export default function App() {
     } catch (error) {
       console.error('スコア保存エラー:', error);
     }
+  };
+
+  // レベルとXPの初期化
+  const initializeLevel = async () => {
+    const { level, xp } = await loadLevelData();
+    setLevel(level);
+    setXp(xp);
+    setXpForNextLevel(getXpForNextLevel(level));
   };
 
   // ユーザー統計初期化
@@ -126,6 +141,8 @@ export default function App() {
       setDb(database);
       // スコアを読み込み
       await loadScore();
+      // レベルとXPを初期化
+      await initializeLevel();
       // ユーザー統計を初期化
       await initializeUserStats();
     })();
@@ -154,12 +171,14 @@ export default function App() {
     setAnswer('');
     setLoading(true);
     try {
+      // last_answered_dateがNULLまたは古いものを優先して出題
       const row = await database.getFirstAsync(
         `SELECT e.id,e.sentence,e.target,e.reading,e.difficulty,k.grade
          FROM examples e
          JOIN kanji k ON e.kanji_id=k.id
          WHERE k.grade <= ? AND e.difficulty <= ?
-         ORDER BY RANDOM() LIMIT 1;`,
+         ORDER BY CASE WHEN e.last_answered_date IS NULL THEN 0 ELSE 1 END, e.last_answered_date ASC, RANDOM()
+         LIMIT 1;`,
         filters.maxGrade,
         filters.maxDiff
       );
@@ -194,6 +213,27 @@ export default function App() {
       
       // アニメーション表示
       setShowScoreAnimation(true);
+
+      // XPを追加
+      const xpResult = await addXp(15); // 正解で15XP獲得
+      setLevel(xpResult.level);
+      setXp(xpResult.xp);
+      setXpForNextLevel(xpResult.xpForNextLevel);
+
+      if (xpResult.leveledUp) {
+        Alert.alert('🎉 レベルアップ！', `レベル ${xpResult.level} になりました！`);
+      }
+    }
+
+    // 解答日時を更新
+    try {
+      const now = new Date().toISOString();
+      await db.runAsync(
+        'UPDATE examples SET last_answered_date = ? WHERE id = ?;',
+        [now, question.id]
+      );
+    } catch (error) {
+      console.error('解答日時の更新に失敗:', error);
     }
   };
 
@@ -264,8 +304,8 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
         
-        {/* スコアバー */}
-        <ScoreBar score={totalScore} onReset={resetScore} />
+        {/* レベルインジケーター */}
+        <LevelIndicator level={level} xp={xp} xpForNextLevel={xpForNextLevel} />
         
         {/* スコアアニメーション */}
         <ScoreAnimation 
@@ -334,35 +374,82 @@ export default function App() {
         )}
 
         {/* クイズ */}
-        {mode === 'quiz' && (
-          loading ? (
+        {mode === 'quiz' &&
+          (loading ? (
             <ActivityIndicator size="large" />
-          ) : question && (
-            <View>
-              <Text style={styles.sentence}>{`${qCount+1}. ${question.sentence}`}</Text>
-              <Text style={styles.prompt}>「{question.target}」の読みを入力</Text>
-              <TextInput 
-                style={styles.input} 
-                value={answer} 
-                onChangeText={setAnswer} 
-                placeholder="ひらがな"
-                autoCorrect={false}
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize="none"
-              />
-              <Button title="答える" onPress={checkAnswer} />
-              {feedback !== '' && (
-                <View style={styles.feedbackContainer}>
-                  <Text style={styles.feedback}>{feedback}</Text>
-                  <Button title={qCount < 9 ? "次へ" : "結果へ"} onPress={handleNext} />
+          ) : (
+            question && (
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingView}
+              >
+                <View style={styles.quizContainer}>
+                  <View style={styles.quizMainContent}>
+                    <Text style={styles.sentence}>{`${
+                      qCount + 1
+                    }. ${question.sentence}`}</Text>
+                    <Text style={styles.prompt}>「{question.target}」の読みを入力</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={answer}
+                      onChangeText={setAnswer}
+                      placeholder="ひらがな"
+                      autoCorrect={false}
+                      autoComplete="off"
+                      spellCheck={false}
+                      autoCapitalize="none"
+                      editable={feedback === ''}
+                    />
+                    {feedback !== '' && (
+                      <View style={styles.feedbackContainer}>
+                        <Text style={styles.feedback}>{feedback}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.quizFooter}>
+                    {feedback === '' ? (
+                      <TouchableOpacity
+                        style={[
+                          styles.button,
+                          styles.primaryButton,
+                          answer.trim() === '' && styles.disabledButton,
+                        ]}
+                        onPress={checkAnswer}
+                        disabled={answer.trim() === ''}
+                      >
+                        <Text style={styles.buttonText}>答える</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.button, styles.primaryButton]}
+                        onPress={handleNext}
+                      >
+                        <Text style={styles.buttonText}>
+                          {qCount < 9 ? "次へ" : "結果へ"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <Text style={styles.diff}>
+                      学年:{question.grade} 難易度:{question.difficulty}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.button, styles.secondaryButton]}
+                      onPress={() => goMode('menu')}
+                    >
+                      <Text
+                        style={[styles.buttonText, styles.secondaryButtonText]}
+                      >
+                        トップに戻る
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              )}
-              <Text style={styles.diff}>学年:{question.grade} 難易度:{question.difficulty}</Text>
-              <Button title="トップに戻る" onPress={() => goMode('menu')} />
-            </View>
-          )
-        )}
+              </KeyboardAvoidingView>
+            )
+          ))}
 
         {/* 結果 */}
         {mode === 'result' && (
@@ -464,12 +551,43 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: { fontSize: 20, marginBottom: 12 },
-  sentence: { fontSize: 22, marginBottom: 8 },
-  prompt: { fontSize: 16, marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#888', padding: 8, fontSize: 18, marginBottom: 8 },
-  feedbackContainer: { marginTop: 8 },
-  feedback: { fontSize: 18, marginBottom: 8 },
-  diff: { marginTop: 12, color: '#666' },
+  sentence: { fontSize: 22, marginBottom: 8, textAlign: 'center' },
+  prompt: { fontSize: 16, marginBottom: 8, textAlign: 'center' },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#f9f9f9',
+    padding: 16,
+    fontSize: 20,
+    marginBottom: 24,
+    borderRadius: 10,
+    textAlign: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  feedbackContainer: {
+    marginTop: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: '#e9ecef',
+    alignItems: 'center',
+    minHeight: 80,
+    justifyContent: 'center',
+  },
+  feedback: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  diff: {
+    marginTop: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   item: { padding: 8, borderBottomWidth: 1, borderColor: '#ddd' },
   resultContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   resultText: { fontSize: 28, fontWeight: 'bold', marginBottom: 16 },
@@ -494,6 +612,49 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flex: 1,
     padding: 16,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  quizContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+  },
+  quizMainContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  quizFooter: {},
+  button: {
+    paddingVertical: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  primaryButton: {
+    backgroundColor: '#007aff',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007aff',
+  },
+  disabledButton: {
+    backgroundColor: '#a9a9a9',
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  secondaryButtonText: {
+    color: '#007aff',
   },
 });
 
