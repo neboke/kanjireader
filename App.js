@@ -10,8 +10,9 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  KeyboardAvoidingView, // 追加
-  Platform, // 追加
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView, // 追加
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -334,43 +335,95 @@ export default function App() {
                 </>
               )}
             </View>
-            
-            <TouchableOpacity style={styles.menuCard} onPress={startQuiz}>
-              <Text style={styles.menuIcon}>🎯</Text>
-              <Text style={styles.menuText}>クイズ開始</Text>
+
+            <TouchableOpacity
+              style={[styles.menuCard, styles.primaryMenuCard]}
+              onPress={startQuiz}
+            >
+              <Text style={[styles.menuIcon, styles.primaryMenuIcon]}>🎯</Text>
+              <Text style={[styles.menuText, styles.primaryMenuText]}>
+                クイズ開始
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('badges')}>
-              <Text style={styles.menuIcon}>🏆</Text>
-              <Text style={styles.menuText}>バッジコレクション</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('filters')}>
-              <Text style={styles.menuIcon}>⚙️</Text>
-              <Text style={styles.menuText}>フィルター設定</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('data')}>
-              <Text style={styles.menuIcon}>📊</Text>
-              <Text style={styles.menuText}>データ一覧</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuCard} onPress={() => goMode('history')}>
-              <Text style={styles.menuIcon}>📜</Text>
-              <Text style={styles.menuText}>解答履歴</Text>
-            </TouchableOpacity>
+
+            <View style={styles.secondaryMenuContainer}>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => goMode('badges')}
+              >
+                <Text style={styles.menuIcon}>🏆</Text>
+                <Text style={styles.menuText}>バッジ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => goMode('filters')}
+              >
+                <Text style={styles.menuIcon}>⚙️</Text>
+                <Text style={styles.menuText}>設定</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => goMode('data')}
+              >
+                <Text style={styles.menuIcon}>📊</Text>
+                <Text style={styles.menuText}>データ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => goMode('history')}
+              >
+                <Text style={styles.menuIcon}>📜</Text>
+                <Text style={styles.menuText}>履歴</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* フィルター設定 */}
+        {/* 設定 */}
         {mode === 'filters' && (
-          <View>
-            <Text style={styles.subtitle}>🔧 フィルター設定</Text>
-            <Text>最大学年:</Text>
-            <Picker selectedValue={filters.maxGrade} onValueChange={v => setFilters(f => ({ ...f, maxGrade: v }))}>
-              {[1,2,3,4,5,6].map(g => <Picker.Item key={g} label={`${g}年`} value={g} />)}
-            </Picker>
-            <Text>最大難易度:</Text>
-            <Picker selectedValue={filters.maxDiff} onValueChange={v => setFilters(f => ({ ...f, maxDiff: v }))}>
-              {[1,2,3,4,5,6,7].map(d => <Picker.Item key={d} label={`${d}`} value={d} />)}
-            </Picker>
-          </View>
+          <ScrollView style={styles.settingsContainer}>
+            <Text style={styles.subtitle}>🔧 設定</Text>
+
+            <View style={styles.settingSection}>
+              <Text style={styles.settingLabel}>出題範囲フィルター</Text>
+              <Text>最大学年:</Text>
+              <Picker
+                selectedValue={filters.maxGrade}
+                onValueChange={(v) => setFilters((f) => ({ ...f, maxGrade: v }))}
+              >
+                {[1, 2, 3, 4, 5, 6].map((g) => (
+                  <Picker.Item key={g} label={`${g}年`} value={g} />
+                ))}
+              </Picker>
+              <Text>最大難易度:</Text>
+              <Picker
+                selectedValue={filters.maxDiff}
+                onValueChange={(v) => setFilters((f) => ({ ...f, maxDiff: v }))}
+              >
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <Picker.Item key={d} label={`${d}`} value={d} />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.settingSection}>
+              <Text style={styles.settingLabel}>情報</Text>
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={() => Alert.alert('準備中', 'リンク先は現在準備中です。')}
+              >
+                <Text style={styles.settingsButtonText}>お問い合わせ</Text>
+                <Text style={styles.settingsButtonChevron}>&gt;</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.settingsButton}
+                onPress={() => Alert.alert('準備中', 'リンク先は現在準備中です。')}
+              >
+                <Text style={styles.settingsButtonText}>利用規約</Text>
+                <Text style={styles.settingsButtonChevron}>&gt;</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         )}
 
         {/* クイズ */}
@@ -527,8 +580,45 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  menuContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 },
-  menuCard: { width: '48%', backgroundColor: '#f0f8ff', borderRadius: 8, padding: 16, alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 },
+  menuContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  primaryMenuCard: {
+    width: '100%',
+    height: 120,
+    justifyContent: 'center',
+    backgroundColor: '#007aff',
+    marginBottom: 24,
+  },
+  primaryMenuIcon: {
+    fontSize: 40,
+    color: '#fff',
+  },
+  primaryMenuText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  secondaryMenuContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  menuCard: {
+    width: '48%',
+    backgroundColor: '#f0f8ff',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    height: 100, // Smaller cards height
+    justifyContent: 'center',
+  },
   menuIcon: { fontSize: 32, marginBottom: 8 },
   menuText: { fontSize: 16, fontWeight: '600' },
   statsContainer: {
@@ -655,6 +745,37 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#007aff',
+  },
+  settingsContainer: {
+    paddingHorizontal: 16,
+  },
+  settingSection: {
+    marginBottom: 24,
+  },
+  settingLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  settingsButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  settingsButtonText: {
+    fontSize: 16,
+  },
+  settingsButtonChevron: {
+    fontSize: 16,
+    color: '#c7c7cc',
   },
 });
 
