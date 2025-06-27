@@ -12,6 +12,7 @@
     "expo": "53.0.12",
     "expo-application": "^6.1.4",
     "expo-asset": "^11.1.5",
+    "expo-constants": "^17.1.6",
     "expo-file-system": "^18.1.10",
     "expo-sqlite": "~15.2.12",
     "expo-status-bar": "~2.2.3",

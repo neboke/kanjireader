@@ -13,13 +13,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Linking, // 追加
+  Linking,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as SQLite from 'expo-sqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Application from 'expo-application'; // 追加
+import Constants from 'expo-constants'; // expo-applicationの代わりにexpo-constantsをインポート
 import { initDatabase, insertInitialDataIfNeeded } from './db';
 import { LevelIndicator } from './components/LevelIndicator';
 import { ScoreAnimation } from './components/ScoreBar';
@@ -414,7 +414,8 @@ export default function App() {
               <TouchableOpacity
                 style={styles.settingsButton}
                 onPress={async () => {
-                  const appVersion = Application.nativeApplicationVersion;
+                  // app.jsonからバージョンを取得
+                  const appVersion = Constants.expoConfig.version;
                   const url = `https://docs.google.com/forms/d/e/1FAIpQLSfv4S7c-bzcITZCrQ4BHtVFztUom-lfcvY7GQsDUoP4sf4fvw/viewform?usp=pp_url&entry.1348739971=${appVersion}`;
                   try {
                     await Linking.openURL(url);
