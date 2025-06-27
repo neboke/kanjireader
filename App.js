@@ -12,19 +12,22 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView, // 追加
+  ScrollView,
+  Linking, // 追加
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import * as SQLite from 'expo-sqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Application from 'expo-application'; // 追加
 import { initDatabase, insertInitialDataIfNeeded } from './db';
-import { ScoreBar, ScoreAnimation } from './components/ScoreBar';
-import { LevelIndicator } from './components/LevelIndicator'; // 追加
+import { LevelIndicator } from './components/LevelIndicator';
+import { ScoreAnimation } from './components/ScoreBar';
 import { BadgeGrid, BadgeSummary } from './components/BadgeDisplay';
-import { badgeDefinitions, checkBadges, countEarnedBadges, getNewlyEarnedBadges } from './badges/BadgeDefinitions';
-import { loadUserStats, recordSessionResult, recordDailyActivity, updateUserStats, updateBadgeEarnCount } from './utils/UserStatsManager';
-import { loadLevelData, addXp, getXpForNextLevel } from './utils/LevelManager'; // 追加
+import { TermsScreen } from './components/TermsScreen'; // 追加
+import { badgeDefinitions, getNewlyEarnedBadges } from './badges/BadgeDefinitions';
+import { loadUserStats, recordSessionResult, recordDailyActivity, updateBadgeEarnCount } from './utils/UserStatsManager';
+import { loadLevelData, addXp, getXpForNextLevel } from './utils/LevelManager';
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -410,14 +413,22 @@ export default function App() {
               <Text style={styles.settingLabel}>情報</Text>
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => Alert.alert('準備中', 'リンク先は現在準備中です。')}
+                onPress={async () => {
+                  const appVersion = Application.nativeApplicationVersion;
+                  const url = `https://docs.google.com/forms/d/e/1FAIpQLSfv4S7c-bzcITZCrQ4BHtVFztUom-lfcvY7GQsDUoP4sf4fvw/viewform?usp=pp_url&entry.1348739971=${appVersion}`;
+                  try {
+                    await Linking.openURL(url);
+                  } catch (error) {
+                    Alert.alert('エラー', 'フォームを開けませんでした。');
+                  }
+                }}
               >
                 <Text style={styles.settingsButtonText}>お問い合わせ</Text>
                 <Text style={styles.settingsButtonChevron}>&gt;</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => Alert.alert('準備中', 'リンク先は現在準備中です。')}
+                onPress={() => goMode('terms')}
               >
                 <Text style={styles.settingsButtonText}>利用規約</Text>
                 <Text style={styles.settingsButtonChevron}>&gt;</Text>
@@ -425,6 +436,9 @@ export default function App() {
             </View>
           </ScrollView>
         )}
+
+        {/* 利用規約 */}
+        {mode === 'terms' && <TermsScreen onBack={() => goMode('filters')} />}
 
         {/* クイズ */}
         {mode === 'quiz' &&
@@ -569,10 +583,12 @@ export default function App() {
         )}
 
         {/* 共通戻るボタン */}
-        {mode !== 'menu' && mode !== 'quiz' && mode !== 'result' && (
-          <Button title="メニューに戻る" onPress={() => goMode('menu')} />
-        )}
-
+        {mode !== 'menu' &&
+          mode !== 'quiz' &&
+          mode !== 'result' &&
+          mode !== 'terms' && (
+            <Button title="メニューに戻る" onPress={() => goMode('menu')} />
+          )}
       </SafeAreaView>
     </SafeAreaProvider>
   );

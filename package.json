@@ -10,6 +10,7 @@
     "@react-native-picker/picker": "2.11.0",
     "eas-cli": "^16.12.0",
     "expo": "53.0.12",
+    "expo-application": "^6.1.4",
     "expo-asset": "^11.1.5",
     "expo-file-system": "^18.1.10",
     "expo-sqlite": "~15.2.12",
