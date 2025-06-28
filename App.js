@@ -14,6 +14,7 @@ import {
   Platform,
   ScrollView,
   Linking,
+  Vibration,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -225,6 +226,7 @@ export default function App() {
       setXpForNextLevel(xpResult.xpForNextLevel);
 
       if (xpResult.leveledUp) {
+        Vibration.vibrate(400);
         Alert.alert('🎉 レベルアップ！', `レベル ${xpResult.level} になりました！`);
       }
     }
