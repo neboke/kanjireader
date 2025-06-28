@@ -25,6 +25,7 @@ import { LevelIndicator } from './components/LevelIndicator';
 import { ScoreAnimation } from './components/ScoreBar';
 import { BadgeGrid, BadgeSummary } from './components/BadgeDisplay';
 import { TermsScreen } from './components/TermsScreen'; // 追加
+import FilterScreen from './screens/FilterScreen';
 import { badgeDefinitions, getNewlyEarnedBadges } from './badges/BadgeDefinitions';
 import { loadUserStats, recordSessionResult, recordDailyActivity, updateBadgeEarnCount } from './utils/UserStatsManager';
 import { loadLevelData, addXp, getXpForNextLevel } from './utils/LevelManager';
@@ -32,7 +33,7 @@ import { loadLevelData, addXp, getXpForNextLevel } from './utils/LevelManager';
 export default function App() {
   const [db, setDb] = useState(null);
   const [mode, setMode] = useState('menu');
-  const [filters, setFilters] = useState({ maxGrade: 6, maxDiff: 7 });
+  const [filters, setFilters] = useState({ minGrade: 1, maxGrade: 6, minDiff: 1, maxDiff: 7 });
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -180,11 +181,10 @@ export default function App() {
         `SELECT e.id,e.sentence,e.target,e.reading,e.difficulty,k.grade
          FROM examples e
          JOIN kanji k ON e.kanji_id=k.id
-         WHERE k.grade <= ? AND e.difficulty <= ?
+         WHERE k.grade >= ? AND k.grade <= ? AND e.difficulty >= ? AND e.difficulty <= ?
          ORDER BY CASE WHEN e.last_answered_date IS NULL THEN 0 ELSE 1 END, e.last_answered_date ASC, RANDOM()
          LIMIT 1;`,
-        filters.maxGrade,
-        filters.maxDiff
+        [filters.minGrade, filters.maxGrade, filters.minDiff, filters.maxDiff]
       );
       setQuestion(row);
     } catch (error) {
@@ -384,62 +384,21 @@ export default function App() {
 
         {/* 設定 */}
         {mode === 'filters' && (
-          <ScrollView style={styles.settingsContainer}>
-            <Text style={styles.subtitle}>🔧 設定</Text>
-
-            <View style={styles.settingSection}>
-              <Text style={styles.settingLabel}>出題範囲フィルター</Text>
-              <Text>最大学年:</Text>
-              <Picker
-                selectedValue={filters.maxGrade}
-                onValueChange={(v) => setFilters((f) => ({ ...f, maxGrade: v }))}
-              >
-                {[1, 2, 3, 4, 5, 6].map((g) => (
-                  <Picker.Item key={g} label={`${g}年`} value={g} />
-                ))}
-              </Picker>
-              <Text>最大難易度:</Text>
-              <Picker
-                selectedValue={filters.maxDiff}
-                onValueChange={(v) => setFilters((f) => ({ ...f, maxDiff: v }))}
-              >
-                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                  <Picker.Item key={d} label={`${d}`} value={d} />
-                ))}
-              </Picker>
-            </View>
-
-            <View style={styles.settingSection}>
-              <Text style={styles.settingLabel}>情報</Text>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={async () => {
-                  // app.jsonからバージョンを取得
-                  const appVersion = Constants.expoConfig.version;
-                  const url = `https://docs.google.com/forms/d/e/1FAIpQLSfv4S7c-bzcITZCrQ4BHtVFztUom-lfcvY7GQsDUoP4sf4fvw/viewform?usp=pp_url&entry.1348739971=${appVersion}`;
-                  try {
-                    await Linking.openURL(url);
-                  } catch (error) {
-                    Alert.alert('エラー', 'フォームを開けませんでした。');
-                  }
-                }}
-              >
-                <Text style={styles.settingsButtonText}>お問い合わせ</Text>
-                <Text style={styles.settingsButtonChevron}>&gt;</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => goMode('terms')}
-              >
-                <Text style={styles.settingsButtonText}>利用規約</Text>
-                <Text style={styles.settingsButtonChevron}>&gt;</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+          <FilterScreen 
+            minGrade={filters.minGrade}
+            setMinGrade={(g) => setFilters(f => ({ ...f, minGrade: g }))}
+            maxGrade={filters.maxGrade}
+            setMaxGrade={(g) => setFilters(f => ({ ...f, maxGrade: g }))}
+            minDiff={filters.minDiff}
+            setMinDiff={(d) => setFilters(f => ({ ...f, minDiff: d }))}
+            maxDiff={filters.maxDiff}
+            setMaxDiff={(d) => setFilters(f => ({ ...f, maxDiff: d }))}
+            onNavigate={goMode}
+          />
         )}
 
         {/* 利用規約 */}
-        {mode === 'terms' && <TermsScreen onBack={() => goMode('filters')} />}
+        {mode === 'terms' && <TermsScreen onBack={() => goMode('menu')} />}
 
         {/* クイズ */}
         {mode === 'quiz' &&
