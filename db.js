@@ -1,6 +1,6 @@
 // db.js
 import * as SQLite from 'expo-sqlite';
-import { kanjiTsvData } from './assets/kanji-data.js';
+import { kanjiTsvData, kanjiDataVersion } from './assets/kanji-data.js';
 
 /**
  * TSVデータからパースされたデータを取得
@@ -72,6 +72,15 @@ export const initDatabase = async () => {
         last_answered_date DATETIME
       );
     `);
+
+    // データバージョン管理用テーブル
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS data_version (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        version TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     
     // For users who already have the database, add the column if it's missing.
     const columns = await db.getAllAsync('PRAGMA table_info(examples);');
@@ -89,19 +98,74 @@ export const initDatabase = async () => {
 };
 
 /**
- * 初期データ投入（1回のみ）
+ * 保存されているデータバージョンを取得
+ */
+const getCurrentDataVersion = async (db) => {
+  try {
+    const result = await db.getFirstAsync('SELECT version FROM data_version WHERE id = 1;');
+    return result ? result.version : null;
+  } catch (error) {
+    console.log('📝 No data version found (first time setup)');
+    return null;
+  }
+};
+
+/**
+ * データバージョンを更新
+ */
+const updateDataVersion = async (db, version) => {
+  try {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO data_version (id, version, updated_at) 
+       VALUES (1, ?, CURRENT_TIMESTAMP);`,
+      [version]
+    );
+    console.log(`✅ Data version updated to: ${version}`);
+  } catch (error) {
+    console.error('❌ Failed to update data version:', error);
+  }
+};
+
+/**
+ * 既存のデータを削除
+ */
+const clearExistingData = async (db) => {
+  try {
+    await db.execAsync('DELETE FROM examples;');
+    await db.execAsync('DELETE FROM kanji;');
+    console.log('🗑️ Cleared existing data');
+  } catch (error) {
+    console.error('❌ Failed to clear existing data:', error);
+    throw error;
+  }
+};
+
+/**
+ * 初期データ投入（バージョン管理対応）
  */
 export const insertInitialDataIfNeeded = async () => {
   try {
     const db = await SQLite.openDatabaseAsync('kanji.db');
     
-    // データが既に存在するかチェック
-    const result = await db.getFirstAsync('SELECT COUNT(*) as count FROM kanji;');
-    const count = result.count;
+    // 現在のデータバージョンを確認
+    const currentVersion = await getCurrentDataVersion(db);
+    const newVersion = kanjiDataVersion;
     
-    if (count > 0) {
-      console.log('📦 Data already exists, skip import.');
+    console.log(`📊 Current data version: ${currentVersion || 'none'}`);
+    console.log(`📊 Available data version: ${newVersion}`);
+    
+    // バージョンが同じ場合はスキップ
+    if (currentVersion === newVersion) {
+      console.log('📦 Data is up to date, skip import.');
       return;
+    }
+    
+    // バージョンが異なる場合は再インポート
+    if (currentVersion) {
+      console.log('🔄 Data version mismatch, reimporting data...');
+      await clearExistingData(db);
+    } else {
+      console.log('🆕 First time setup, importing initial data...');
     }
     
     // TSVデータを読み込む（同期処理）
@@ -158,7 +222,10 @@ export const insertInitialDataIfNeeded = async () => {
       }
     }
     
-    console.log(`✅ Initial data imported: ${insertedKanji} kanji, ${insertedExamples} examples`);
+    // データバージョンを更新
+    await updateDataVersion(db, newVersion);
+    
+    console.log(`✅ Data import completed: ${insertedKanji} kanji, ${insertedExamples} examples (version: ${newVersion})`);
   } catch (error) {
     console.error('❌ DB import error:', error);
   }
