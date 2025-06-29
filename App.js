@@ -198,9 +198,14 @@ export default function App() {
   // 回答チェック
   const checkAnswer = async () => {
     if (!question) return;
-    const correct = answer.trim() === question.reading;
+    
+    // カンマ区切りで複数の読み方がある場合に対応
+    const correctReadings = question.reading.split(',').map(reading => reading.trim());
+    const userAnswer = answer.trim();
+    const correct = correctReadings.includes(userAnswer);
+    
     setFeedback(correct ? '✅ 正解！' : `❌ 不正解。正解は「${question.reading}」`);
-    setHistory(h => [...h, { question, yourAnswer: answer.trim(), correct }]);
+    setHistory(h => [...h, { question, yourAnswer: userAnswer, correct }]);
     
     // ストリーク更新
     if (correct) {
@@ -391,8 +396,6 @@ export default function App() {
             setMinGrade={(g) => setFilters(f => ({ ...f, minGrade: g }))}
             maxGrade={filters.maxGrade}
             setMaxGrade={(g) => setFilters(f => ({ ...f, maxGrade: g }))}
-            minDiff={filters.minDiff}
-            setMinDiff={(d) => setFilters(f => ({ ...f, minDiff: d }))}
             maxDiff={filters.maxDiff}
             setMaxDiff={(d) => setFilters(f => ({ ...f, maxDiff: d }))}
             onNavigate={goMode}

@@ -7,7 +7,6 @@ const FilterScreen = ({
   maxGrade, setMaxGrade,
   maxDiff, setMaxDiff,
   minGrade, setMinGrade,
-  minDiff, setMinDiff,
   onNavigate,
 }) => {
 
@@ -23,20 +22,6 @@ const FilterScreen = ({
       setMinGrade(value);
     }
     setMaxGrade(value);
-  };
-
-  const handleMinDiffChange = (value) => {
-    if (value > maxDiff) {
-      setMaxDiff(value);
-    }
-    setMinDiff(value);
-  };
-
-  const handleMaxDiffChange = (value) => {
-    if (value < minDiff) {
-      setMinDiff(value);
-    }
-    setMaxDiff(value);
   };
 
   const openContactForm = async () => {
@@ -85,29 +70,14 @@ const FilterScreen = ({
         </View>
       </View>
 
-      <View style={styles.filterRow}>
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>最低難易度</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={minDiff}
-              style={styles.picker}
-              onValueChange={(itemValue) => handleMinDiffChange(itemValue)}
-            >
-              {[...Array(7).keys()].map((i) => (
-                <Picker.Item key={i + 1} label={`${i + 1}`} value={i + 1} />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
+      <View style={styles.singlePickerRow}>
         <View style={styles.pickerContainer}>
           <Text style={styles.pickerLabel}>最高難易度</Text>
           <View style={styles.pickerWrapper}>
             <Picker
               selectedValue={maxDiff}
               style={styles.picker}
-              onValueChange={(itemValue) => handleMaxDiffChange(itemValue)}
+              onValueChange={(itemValue) => setMaxDiff(itemValue)}
             >
               {[...Array(7).keys()].map((i) => (
                 <Picker.Item key={i + 1} label={`${i + 1}`} value={i + 1} />
@@ -152,6 +122,11 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  singlePickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginBottom: 20,
   },
   pickerContainer: {
