@@ -14,6 +14,10 @@ const FilterScreen = ({
     if (value > maxGrade) {
       setMaxGrade(value);
     }
+    // 最高難易度が新しい最低学年より小さい場合は調整
+    if (maxDiff < value) {
+      setMaxDiff(value);
+    }
     setMinGrade(value);
   };
 
@@ -79,8 +83,8 @@ const FilterScreen = ({
               style={styles.picker}
               onValueChange={(itemValue) => setMaxDiff(itemValue)}
             >
-              {[...Array(7).keys()].map((i) => (
-                <Picker.Item key={i + 1} label={`${i + 1}`} value={i + 1} />
+              {[...Array(7 - minGrade + 1).keys()].map((i) => (
+                <Picker.Item key={minGrade + i} label={`${minGrade + i}`} value={minGrade + i} />
               ))}
             </Picker>
           </View>
